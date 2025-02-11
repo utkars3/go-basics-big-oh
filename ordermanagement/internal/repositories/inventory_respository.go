@@ -3,6 +3,8 @@ package repositories
 import (
 	"ordermanagement/config"
 	"ordermanagement/internal/models"
+
+	"gorm.io/gorm"
 )
 
 func CreateInventory(item *models.Inventory) (*models.Inventory, error) {
@@ -50,4 +52,9 @@ func NewInventoryRepository() InventoryRepository {
 func (repo *InventoryRepositoryImpl) GetInventoryByProductID(productID string) (*models.Inventory, error) {
 	// Actual implementation with ORM (e.g., GORM)
 	return nil, nil
+}
+
+func SaveInventory(tx *gorm.DB, inventory *models.Inventory) error {
+	// Save the updated inventory
+	return tx.Save(inventory).Error
 }

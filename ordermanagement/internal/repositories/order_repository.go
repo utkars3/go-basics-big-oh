@@ -105,3 +105,8 @@ func UpdateInventoryStock(db *gorm.DB, inventory *models.Inventory) error {
 func SaveOrder(db *gorm.DB, order *models.Order) error {
 	return db.Save(order).Error
 }
+
+func CreateOrder(tx *gorm.DB, order *models.Order) error {
+	return tx.Create(order).Error
+}
+

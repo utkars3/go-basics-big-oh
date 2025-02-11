@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"ordermanagement/config"
+	"ordermanagement/middleware"
 	"ordermanagement/routes"
 	"ordermanagement/workers"
 
@@ -19,7 +20,7 @@ func init() {
 func main() {
 	// Initialize the Gin router
 	r := gin.Default()
-
+	r.Use(middleware.CORSMiddleware())
 	// Setup the routes
 	routes.SetupRoutes(r)
 

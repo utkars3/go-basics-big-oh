@@ -20,95 +20,28 @@ import (
 // PlaceOrder places a new order with inventory check and MongoDB logging
 func PlaceOrder(c *gin.Context) {
 	var order models.Order
+
+	userID, exists := c.Get("userID")
+	if !exists {
+		// Handle case where userID is not present in the context
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found in context"})
+		return
+	}
+	order.UserID = userID.(uuid.UUID)
+
 	if err := c.ShouldBindJSON(&order); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Begin transaction
-	tx := config.DBPostgreSQL.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	// Check if the user exists
-	var user models.User
-	if err := tx.Where("id = ?", order.UserID).First(&user).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusNotFound, gin.H{"error": "User does not exist"})
-		return
-	}
-
-	// Check inventory using ProductID
-	var inventory models.Inventory
-	if err := tx.Where("id = ?", order.ProductID).First(&inventory).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
-		return
-	}
-
-	// Ensure stock is available
-	if inventory.Stock <= 0 {
-		tx.Rollback()
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Out of stock"})
-		return
-	}
-
-	// Deduct stock & create order
-	inventory.Stock--
-	if err := tx.Save(&inventory).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update inventory"})
-		return
-	}
-
-	// Create the order
-	if err := tx.Create(&order).Error; err != nil {
-		tx.Rollback()
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to place order"})
-		return
-	}
-
-	var orderWithUser models.Order
-	if err := tx.Preload("User").First(&orderWithUser, order.ID).Error; err != nil {
-		log.Println("Error fetching order with user:", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch order with user details"})
-		return
-	}
-
-	// Commit the transaction
-	tx.Commit()
-
-	// Log order in MongoDB
-	logOrderHistory(order.ID, "pending")
-
-	c.JSON(http.StatusOK, gin.H{"message": "Order placed successfully", "order": orderWithUser})
-}
-
-// logOrderHistory logs order history in MongoDB
-func logOrderHistory(orderID uuid.UUID, status string) {
-	// Get the current timestamp
-	timestamp := time.Now()
-	orderIDStr := orderID.String()
-	// Create the order history log entry
-	orderHistory := bson.M{
-		"order_id": orderIDStr,
-		"status":   status,
-		"log": []bson.M{
-			{
-				"status":    status,
-				"timestamp": timestamp, // Add the timestamp
-			},
-		},
-	}
-
-	// Insert the order history into MongoDB
-	_, err := config.MongoDB.Collection("order_history").InsertOne(context.Background(), orderHistory)
+	orderWithUser, err := services.CreateOrderService(&order)
 	if err != nil {
-		log.Println("Error logging order history:", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
+
+	c.JSON(http.StatusCreated, orderWithUser)
+
 }
 
 // GetOrder retrieves an order by its ID from PostgreSQL
@@ -141,29 +74,6 @@ func GetOrder(c *gin.Context) {
 		"order": order,
 	})
 }
-
-// func CancelOrderHandler(c *gin.Context) {
-// 	orderID := c.Param("id")
-// 	parsedOrderID, err := uuid.Parse(orderID)
-// 	if err != nil {
-// 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid order ID"})
-// 		return
-// 	}
-// 	order, err := services.CancelOrderService(config.DBPostgreSQL, parsedOrderID)
-// 	if err != nil {
-// 		if fmt.Sprintf("%T", err) == "*gorm.ErrRecordNotFound" {
-// 			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("Order with ID %s not found", orderID)})
-// 		} else {
-// 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to cancel order: %v", err)})
-// 		}
-// 		return
-// 	}
-
-// 	c.JSON(http.StatusOK, gin.H{
-// 		"message": "Order cancelled successfully",
-// 		"order":   order,
-// 	})
-// }
 
 // CancelOrder cancels an existing order by updating its status to 'cancelled' if it's in 'pending' state
 func CancelOrder(c *gin.Context) {
