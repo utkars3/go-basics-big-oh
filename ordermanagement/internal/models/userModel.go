@@ -15,6 +15,7 @@ type User struct {
 	Email    string    `gorm:"type:varchar(100);not null"`
 	Mobile   string    `gorm:"type:varchar(15);not null"`
 	Password string    `gorm:"type:varchar(255);not null"`
+	Role     string    `gorm:"type:varchar(5);not null;default:'user'"`
 }
 
 func (u *User) ValidateUser() error {

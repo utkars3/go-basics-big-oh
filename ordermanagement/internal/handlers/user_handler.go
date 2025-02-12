@@ -17,7 +17,7 @@ func CreateUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 		return
 	}
-
+	
 	if err := services.CreateUserService(&user); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
