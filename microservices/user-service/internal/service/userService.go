@@ -18,7 +18,7 @@ func GetUserByID(userID int) (model.User, error) {
 
 // Send notification to the user
 func SendNotification(user model.User) {
-	notificationURL := "http://localhost:8081/notify"
+	notificationURL := "http://localhost:8081/notification"
 
 	notificationData := map[string]interface{}{
 		"user_id": user.ID,

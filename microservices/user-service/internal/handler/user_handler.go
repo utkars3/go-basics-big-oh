@@ -12,6 +12,7 @@ import (
 // GetUserHandler handles fetching a user and sending a notification
 func GetUserHandler(c *gin.Context) {
 	userID, err := strconv.Atoi(c.Param("id"))
+
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
 		return
